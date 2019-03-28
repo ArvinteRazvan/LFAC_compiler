@@ -1,0 +1,1518 @@
+#include<string.h>
+
+#define nr_max_param 10
+
+struct variable
+{
+	char name[100];
+	char type[10];
+	int*dimensions;
+	int dimensions_nr;
+
+	int initialized;
+	void*starting_pt;
+};
+struct function
+{
+	char name[50];
+	char type[10];
+	int nr_of_param;
+	char param[nr_max_param][10];
+};
+
+struct auxiliar_var
+{
+	char type[10];
+	void*pt;
+	int size;
+};
+auxiliar_var aux, container1, container2;
+aux.pt = malloc(10000);
+container1.pt = malloc(10000);
+container2.pt = malloc(10000);
+
+struct variable variables[100];
+struct function functions[100];
+
+int count = 0, count_f = 0;
+char buffer[3000] = "";
+
+//functions defined by the programmer
+//////////////////////////////////////////////////////////////////////
+int max(int a, int b)
+{
+	if (a>b)
+		return a;
+	else
+		return b;
+}
+int min(int a, int b)
+{
+	if (a<b)
+		return a;
+	else
+		return b;
+}
+int module(int a)
+{
+	if (a<0)
+		return (-a);
+	else
+		return a;
+}
+int gcd(int a, int b)
+{
+	while (a != b)
+		if (a>b) a = a - b;
+		else b = b - a;
+		return b;
+}
+int lcm(int a, int b)
+{
+	int rez;
+	rez = a*b / gcd(a, b);
+	return rez;
+}
+
+// validating the declaration of simple variables
+//////////////////////////////////////////////////////////////////////
+int declared(char var[])//OK
+{
+	int i;
+	for (i = 0; i <= count; i++)
+		if (strcmp(var, variables[i].name) == 0) return i;
+	return -1;
+}
+int initialized(char var[])
+{
+	int i;
+	for (i = 0; i <= count; i++)
+		if (strcmp(var, variables[i].name) == 0)
+			if (variables[i].initialized == 0)
+				return 0;
+			else return 1;
+			return 0;
+}
+
+int identify_type(char type[])//int = 1, float = 2, char = 3 //OK
+{
+	if (strcmp(type, "int") == 0)
+		return 1;
+	if (strcpm(type, "float") == 0)
+		return 2;
+	if (strcpm(type, "char") == 0)
+		return 3;
+}
+
+//declaring simple variables
+//////////////////////////////////////////////////////////////////////
+int declared_and_init(char var[])//OK
+{
+	int i = declared(var);
+	if (i >= 0)
+	{
+		if (variables[i].initialised != 0)
+			return i;
+		else
+			return 0;
+	}
+	else return 0;
+}
+int decl_with_init(char type[], char var1[], char var2[])
+{
+	int loc_var2 = declared_and_init(var2);
+	if (loc_var2<0)//daca var2 nu e declarata si initializata
+		return 1;
+	int loc_var1 = declared(var1);
+	if (loc_var1 >= 0)//daca var1 e deja declarata
+		return 2;
+
+	int type_var1 = identify_type(type);
+	int type_var2 = identify_type(variables[loc_var2].type);
+	switch (type_var1)
+	{
+	case 1:
+	{
+		variables[count].starting_pt = (int)malloc(sizeof(int));
+		switch (type_var2)
+		{
+		case 1:
+		{
+			copy_int_to_int(loc_var1, loc_var2);
+			return 0;
+		}
+		case 2:
+		{
+			copy_float_to_int(loc_var1, loc_var2);
+			return 0;
+		}
+		case 3:
+		{
+			copy_char_to_int(loc_var1, loc_var2);
+			return 0;
+		}
+		}
+	}
+	case 2:
+	{
+		variables[count].starting_pt = (float)malloc(sizeof(float));
+		switch (type_var2)
+		{
+		case 1:
+		{
+			copy_int_to_float(loc_var1, loc_var2);
+			return 0;
+		}
+		case 2:
+		{
+			copy_float_to_float(loc_var1, loc_var2);
+			return 0;
+		}
+		case 3:
+		{
+			copy_char_to_float(loc_var1, loc_var2);
+			return 0;
+		}
+		}
+	}
+	case 3:
+	{
+		variables[count].starting_pt = (char)malloc(sizeof(char));
+		switch (type_var2)
+		{
+		case 1:
+		{
+			copy_int_to_char(loc_var1, loc_var2);
+			return 0;
+		}
+		case 2:
+		{
+			copy_float_to_char(loc_var1, loc_var2);
+			return 0;
+		}
+		case 3:
+		{
+			copy_char_to_char(loc_var1, loc_var2);
+			return 0;
+		}
+		}
+	}
+
+	}
+
+	strcpy(variables[count].name, var1);
+	strcpy(variables[count].type, type);
+	variables[count].initialized = 1;
+	variables[count].dimensions_nr = 0;
+	variables[count].dimensions = NULL;
+
+	count++;
+	return 0;
+}
+
+//declaring a variable without initialization
+void decl_without_init(char type[], char var_name[])
+{
+	if (declared(var_name) >= 0)
+		return 2;
+	strcpy(variables[count].name, var_name);
+	strcpy(variables[count].type, type);
+	variables[count].initialized = 0;
+	variables[count]dimensions = NULL;
+	variables[count]dimensions_nr = 0;
+	int type_ = identify_type(type);
+	switch (type_)
+	{
+	case 1:
+	{
+		variables[count].starting_pt = (int)malloc(sizeof(int));
+		break;
+	}
+	case 2:
+	{
+		variables[count].starting_pt = (float)malloc(sizeof(float));
+		break;
+	}
+	case 3:
+	{
+		variables[count].starting_pt = (char)malloc(sizeof(char));
+		break;
+	}
+	}
+	count++;
+}
+
+//The copy function of a variable (cast)
+//////////////////////////////////////////////////////////////////////
+void copy_int_to_int(int loc_var1, int loc_var2, int l1 = 0, int l2 = 0)
+{
+	memcpy(variables[loc_var1].starting_pt + l1 * sizeof(int), variables[loc_var2].starting_pt + l2 * sizeof(int), sizeof(int));
+}
+void copy_float_to_int(int loc_var1, int loc_var2, int l1 = 0, int l2 = 0)
+{
+	int val = (int)variables[loc_var2].starting_pt + l2 * sizeof(float);
+	memcpy(variables[loc_var1].starting_pt + l1 * sizeof(int), &val, sizeof(int));
+}
+void copy_char_to_int(int loc_var1, int loc_var2, int l1 = 0, int l2 = 0)
+{
+	int val = *variables[loc_var2].starting_pt + l2 * sizeof(char);
+	memcpy(variables[loc_var1].starting_pt + l1 * sizeof(int), &val, sizeof(int));
+}
+void copy_int_to_float(int loc_var1, int loc_var2, int l1 = 0, int l2 = 0)
+{
+	float val = *variables[loc_var2].starting_pt + l2 * sizeof(int);
+	memcpy(variables[loc_var1].starting_pt + l1 * sizeof(float), &val, sizeof(int));
+}
+void copy_float_to_float(int loc_var1, int loc_var2, int l1 = 0, int l2 = 0)
+{
+	memcpy(variables[loc_var1].starting_pt + l1 * sizeof(float), variables[loc_var2].starting_pt + l2 * sizeof(float), sizeof(float));
+}
+void copy_char_to_float(int loc_var1, int loc_var2, int l1 = 0, int l2 = 0)
+{
+	int val = *variables[loc_var2].starting_pt + l2 * sizeof(char);
+	float value = *val;
+	memcpy(variables[loc_var1].starting_pt + l1 * sizeof(float), &value, sizeof(float));
+}
+void copy_int_to_char(int loc_var1, int loc_var2, int l1 = 0, int l2 = 0)
+{
+	int val = *variables[loc_var2].starting_pt + l2 * sizeof(int);
+	char value = val;
+	memcpy(variables[loc_var1].starting_pt + l1 * sizeof(char), &value, sizeof(char));
+}
+void copy_float_to_char(int loc_var1, int loc_var2, int l1 = 0, int l2 = 0)
+{
+	int val = (int)variables[loc_var2].starting_pt + l2 * sizeof(float);
+	memcpy(variables[loc_var1].starting_pt + l1 * sizeof(char), &val, sizeof(char));
+}
+void copy_char_to_char(int loc_var1, int loc_var2, int l1 = 0, int l2 = 0)
+{
+	memcpy(variables[loc_var1].starting_pt + l1 * sizeof(int), variables[loc_var2].starting_pt + l2 * sizeof(int), sizeof(char));
+}
+
+//Declaring a variable with N dimensions
+//////////////////////////////////////////////////////////////////////
+void decl_x_dim(char type[], char var1[], int*dim, int nr_dim)// int v[10][10]....
+{
+	if (declared(var1) >= 0)
+		return 2;
+	strcpy(variables[count].name, var1);
+	strcpy(variables[count].type, type);
+	variables[count].initialized = 0;
+	int i, d = 1;
+	for (i = 0; i<nr_dim; i++)
+		d = d*dim[i];
+	variables[count].dimensions_nr = d;
+	int type_ = identify_type(type);
+	memcpy(variables[count].dimensions, dim, sizeof(int)*nr_dim);
+	variables[count].dimensions = (int)malloc(sizeof(int)*nr_dim);
+	switch (type_)
+	{
+	case 1:
+	{
+		variables[count].size = sizeof(int)*d;
+		break;
+	}
+	case 2:
+	{
+		variables[count].size = sizeof(float)*d;
+		break;
+	}
+	case 3:
+	{
+		variables[count].size = sizeof(char)*d;
+		break;
+	}
+	}
+	count++;
+}
+int decl_with_init_from_x_dim(char type[], char var1[], char var2[], int*dim, int nr_dim)
+{
+	int loc_var2 = declared_and_init(var2);
+	if (loc_var2<0)//daca var2 nu e declarata si initializata
+		return 1;
+	int loc_var1 = declared(var1);
+	if (loc_var1 >= 0)//daca var1 e deja declarata
+		return 2;
+	if (nr_dim != variables[loc_var2].dimensions_nr)
+		return 3;
+
+	for (i = 0; i<nr_dim; i++)
+		if (dim[i] >= variables[loc_var2].dimensions[i])
+			return 4;
+	int i, j = 1, k = 0;
+	j = identify_type(variables[loc_var2].type);
+	switch (j)
+	{
+	case 1:
+	{
+		j = j * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		j = j * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		j = j * sizeof(char);
+		break;
+	}
+	}
+	for (i = nr_dim - 1; i >= 0; i--)
+	{
+		k = k + j;
+		j = j*dim[i];
+	}
+
+	int type_var1 = identify_type(type);
+	int type_var2 = identify_type(variables[i].type);
+	switch (type_var1)
+	{
+	case 1:
+	{
+		variables[count].starting_pt = (int)malloc(sizeof(int));
+		switch (type_var2)
+		{
+		case 1:
+		{
+			copy_int_to_int(loc_var1, loc_var2, 0, k);
+			return 0;
+		}
+		case 2:
+		{
+			copy_float_to_int(loc_var1, loc_var2, 0, k);
+			return 0;
+		}
+		case 3:
+		{
+			copy_char_to_int(loc_var1, loc_var2, 0, k);
+			return 0;
+		}
+		}
+	}
+	case 2:
+	{
+		variables[count].starting_pt = (float)malloc(sizeof(float));
+		switch (type_var2)
+		{
+		case 1:
+		{
+			copy_int_to_float(loc_var1, loc_var2, 0, k);
+			return 0;
+		}
+		case 2:
+		{
+			copy_float_to_float(loc_var1, loc_var2, 0, k);
+			return 0;
+		}
+		case 3:
+		{
+			copy_char_to_float(loc_var1, loc_var2, 0, k);
+			return 0;
+		}
+		}
+	}
+	case 3:
+	{
+		variables[count].starting_pt = (char)malloc(sizeof(char));
+		switch (type_var2)
+		{
+		case 1:
+		{
+			copy_int_to_char(loc_var1, loc_var2, 0, k);
+			return 0;
+		}
+		case 2:
+		{
+			copy_float_to_char(loc_var1, loc_var2, 0, k);
+			return 0;
+		}
+		case 3:
+		{
+			copy_char_to_char(loc_var1, loc_var2, 0, k);
+			return 0;
+		}
+		}
+	}
+
+	}
+	strcpy(variables[count].name, var1);
+	strcpy(variables[count].type, type);
+	variables[count].initialized = 1;
+	variables[count].dimensions_nr = 0;
+	variables[count].dimensions = NULL;
+	count++;
+	return 0;
+}
+
+//Validating if a function was already declared
+//////////////////////////////////////////////////////////////////////
+int f_is_declared(char type[], char f_name[], char** parameters, int nr_parameters)
+{
+	int i, j, ok;
+	for (i = 0; i <= count_f; i++)
+		if (strcmp(var, functions[i].name) == 0)
+		{
+			if (nr_parameters == functions[i].nr_of_param)
+			{
+				ok = 1;
+				for (j = 0; j<nr_parameters; j++)
+				{
+					if (strcmp(parameters[j], functions[i].param[j] != 0))
+					{
+						ok = 0;
+						break;
+					}
+				}
+				if (ok == 1)
+					return 1;
+			}
+		}
+	strcpy(functions[count_f].name, f_name);
+	strcpy(functions[count_f].type, type);
+	functions[count_f].nr_of_param = nr_parameters;
+	for (i = 0; i<nr_parameters; i++)
+		strcpy(functions[count_f].param[i], parameters[i]);
+	return 0;
+}
+
+
+void give_value(char var_1[], int* dimensions_1 = NULL, int nr_dimensions_1 = 0, char var_2[], int* dimensions_2 = NULL, int nr_dimensions_2 = 0)
+{
+	loc_var1 = declared_and_init(var1);
+	loc_var2 = declared(and_init(var2);
+	int type1 = identify_type(var1);
+	int type2 = identify_type(var2);
+	int loc1 = 1, loc2 = 1;
+	int i, j, k1 = 0, k2 = 0;
+	switch (type1)
+	{
+	case 1:
+	{
+		loc1 = loc1 * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		loc1 = loc1 * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		loc1 = loc1 * sizeof(char);
+		break;
+	}
+	}
+	for (i = nr_dimensions_1 - 1; i >= 0; i--)
+	{
+		k1 = k1 + loc1;
+		loc1 = loc1*dimensions_1[i];
+	}
+	switch (type2)
+	{
+	case 1:
+	{
+		loc2 = loc2 * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		loc2 = loc2 * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		loc2 = loc2 * sizeof(char);
+		break;
+	}
+	}
+	for (i = nr_dimensions_2 - 1; i >= 0; i--)
+	{
+		k2 = k2 + loc2;
+		loc2 = loc2*dimensions_2[i];
+	}
+	switch (type1)
+	{
+	case 1:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			copy_int_to_int(variables[loc_var1], variables[loc_var2], k1, k2);
+			break;
+		}
+		case 2:
+		{
+			copy_float_to_int(variables[loc_var1], variables[loc_var2], k1, k2);
+			break;
+		}
+		case 3:
+		{
+			copy_char_to_int(variables[loc_var1], variables[loc_var2], k1, k2);
+			break;
+		}
+		}
+		break;
+	}
+	case 2:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			copy_int_to_float(variables[loc_var1], variables[loc_var2], k1, k2);
+			break;
+		}
+		case 2:
+		{
+			copy_float_to_float(variables[loc_var1], variables[loc_var2], k1, k2);
+			break;
+		}
+		case 3:
+		{
+			copy_char_to_float(variables[loc_var1], variables[loc_var2], k1, k2);
+			break;
+		}
+		}
+		break;
+	}
+	case 3:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			copy_int_to_char(variables[loc_var1], variables[loc_var2], k1, k2);
+			break;
+		}
+		case 2:
+		{
+			copy_float_to_char(variables[loc_var1], variables[loc_var2], k1, k2);
+			break;
+		}
+		case 3:
+		{
+			copy_char_to_char(variables[loc_var1], variables[loc_var2], k1, k2);
+			break;
+		}
+		}
+		break;
+	}
+	}
+}
+void*get_value(char var[], int* dimensions = NULL, int nr_dimensions)
+{
+	int i, j = 1, k = 0;
+	int loc_var = declared_and_init(var);
+	j = identify_type(variables[loc_var].type);
+	switch (j)
+	{
+	case 1:
+	{
+		j = j * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		j = j * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		j = j * sizeof(char);
+		break;
+	}
+	}
+	for (i = nr_dimensions - 1; i >= 0; i--)
+	{
+		k = k + j;
+		j = j*dimensions[i];
+	}
+	return variables[loc_var1].starting_pt + k;
+}
+int if_condition(auxiliar_var a, char logical_operator[], auxiliar_var b)
+{
+
+}
+
+//Operations between variables (single or multi dimensional)
+//////////////////////////////////////////////////////////////////////
+void addition(char var1[], char var2[])
+{
+	loc_var1 = declared_and_init(var1);
+	loc_var2 = declared(and_init(var2);
+	int type1 = identify_type(var1);
+	int type2 = identify_type(var2);
+	int i, j, k1 = 0, k2 = 0, loc1 = 1, loc2 = 1;
+	switch (type1)
+	{
+	case 1:
+	{
+		loc1 = loc1 * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		loc1 = loc1 * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		loc1 = loc1 * sizeof(char);
+		break;
+	}
+	}
+	for (i = variables[loc_var1].dimensions_nr - 1; i >= 0; i--)
+	{
+		k1 = k1 + loc1;
+		loc1 = loc1*variables[loc_var1].dimensions[i];
+	}
+	switch (type2)
+	{
+	case 1:
+	{
+		loc2 = loc2 * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		loc2 = loc2 * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		loc2 = loc2 * sizeof(char);
+		break;
+	}
+	}
+	for (i = variables[loc_var2].dimensions_nr - 1; i >= 0; i--)
+	{
+		k2 = k2 + loc2;
+		loc2 = loc2*variables[loc_var2].dimensions[i];
+	}
+	switch (type1)
+	{
+	case 1:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left + right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left + (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left + (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	case 2:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left + (float)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left + right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left + (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	case 3:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left + right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left + (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			memcpy(aux.pt, variables[loc_var1].starting_pt, k1);
+			memcpy(aux.pt + k1 + 1, variables[loc_var2].starting_pt, k2);
+			aux.size = k1 + k2 + 1;
+			break;
+		}
+		}
+		break;
+	}
+	}
+}
+void substraction(char var1[], char var2[])
+{
+	loc_var1 = declared_and_init(var1);
+	loc_var2 = declared(and_init(var2);
+	int type1 = identify_type(var1);
+	int type2 = identify_type(var2);
+	int i, j, k1 = 0, k2 = 0, loc1 = 1, loc2 = 1;
+	switch (type1)
+	{
+	case 1:
+	{
+		loc1 = loc1 * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		loc1 = loc1 * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		loc1 = loc1 * sizeof(char);
+		break;
+	}
+	}
+	for (i = variables[loc_var1].dimensions_nr - 1; i >= 0; i--)
+	{
+		k1 = k1 + loc1;
+		loc1 = loc1*variables[loc_var1].dimensions[i];
+	}
+	switch (type2)
+	{
+	case 1:
+	{
+		loc2 = loc2 * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		loc2 = loc2 * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		loc2 = loc2 * sizeof(char);
+		break;
+	}
+	}
+	for (i = variables[loc_var2].dimensions_nr - 1; i >= 0; i--)
+	{
+		k2 = k2 + loc2;
+		loc2 = loc2*variables[loc_var2].dimensions[i];
+	}
+	switch (type1)
+	{
+	case 1:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left - right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left - (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left - (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	case 2:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left - (float)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left - right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left - (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	case 3:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left - right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left - (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = (int)left - (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	}
+}
+void multiplication(char var1[], char var2[])
+{
+	loc_var1 = declared_and_init(var1);
+	loc_var2 = declared(and_init(var2);
+	int type1 = identify_type(var1);
+	int type2 = identify_type(var2);
+	int i, j, k1 = 0, k2 = 0, loc1 = 1, loc2 = 1;
+	switch (type1)
+	{
+	case 1:
+	{
+		loc1 = loc1 * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		loc1 = loc1 * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		loc1 = loc1 * sizeof(char);
+		break;
+	}
+	}
+	for (i = variables[loc_var1].dimensions_nr - 1; i >= 0; i--)
+	{
+		k1 = k1 + loc1;
+		loc1 = loc1*variables[loc_var1].dimensions[i];
+	}
+	switch (type2)
+	{
+	case 1:
+	{
+		loc2 = loc2 * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		loc2 = loc2 * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		loc2 = loc2 * sizeof(char);
+		break;
+	}
+	}
+	for (i = variables[loc_var2].dimensions_nr - 1; i >= 0; i--)
+	{
+		k2 = k2 + loc2;
+		loc2 = loc2*variables[loc_var2].dimensions[i];
+	}
+	switch (type1)
+	{
+	case 1:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left*right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left*(int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = (int)left*(int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	case 2:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left*(float)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left*right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = (int)left*(int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	case 3:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = (int)left*right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = (int)left*(int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = (int)left*(int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	}
+}
+void division(char var1[], char var2[])
+{
+	loc_var1 = declared_and_init(var1);
+	loc_var2 = declared_and_init(var2);
+	int type1 = identify_type(var1);
+	int type2 = identify_type(var2);
+	int i, j, k1 = 0, k2 = 0, loc1 = 1, loc2 = 1;
+	switch (type1)
+	{
+	case 1:
+	{
+		loc1 = loc1 * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		loc1 = loc1 * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		loc1 = loc1 * sizeof(char);
+		break;
+	}
+	}
+	for (i = variables[loc_var1].dimensions_nr - 1; i >= 0; i--)
+	{
+		k1 = k1 + loc1;
+		loc1 = loc1*variables[loc_var1].dimensions[i];
+	}
+	switch (type2)
+	{
+	case 1:
+	{
+		loc2 = loc2 * sizeof(int);
+		break;
+	}
+	case 2:
+	{
+		loc2 = loc2 * sizeof(float);
+		break;
+	}
+	case 3:
+	{
+		loc2 = loc2 * sizeof(char);
+		break;
+	}
+	}
+	for (i = variables[loc_var2].dimensions_nr - 1; i >= 0; i--)
+	{
+		k2 = k2 + loc2;
+		loc2 = loc2*variables[loc_var2].dimensions[i];
+	}
+	switch (type1)
+	{
+	case 1:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left / right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left / (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				int left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left / (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	case 2:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left / (float)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left / right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				float left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = left / (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	case 3:
+	{
+		switch (type2)
+		{
+		case 1:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				int right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = (int)left / right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 2:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				float right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = (int)left / (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		case 3:
+		{
+			for (i = 0; i<k1; i++)
+			{
+				char left, result;
+				char right;
+				memcpy(left, variables[loc_var1].starting_pt + i * sizeof(left), sizeof(left));
+				memcpy(right, variables[loc_var2].starting_pt + i * sizeof(right), sizeof(right));
+				result = (int)left / (int)right;
+				memcpy(aux.pt + i * sizeof(result), result, sizeof(result));
+			}
+			aux.size = sizeof(result)*k1;
+			break;
+		}
+		}
+		break;
+	}
+	}
+}
+
+void write_int_buffer(int integer)
+{
+	char buffer1[30];
+	sprintf(buffer1, "%d", integer);
+	strcat(buffer, buffer1);
+	strcat(buffer, "\n");
+}
+
+void write_buffer(char display[])
+{
+	strcat(buffer, display);
+}
+/*
+void print(char x[])
+{
+	int p = declared(x);
+	write_buffer("\n id ");
+	write_buffer(variables[p].name);
+	write_buffer(" = ");
+	write_int_buffer(variables[p].value);
+	write_buffer("\n");
+}
+*/
+void print(auxiliar_var x[])
+{
+	if (strcmp(x," ")==0)
+	{
+		printf(" ");
+		return ;
+	}
+	if(strcmp(x,"\\n")==0)
+	{
+		printf("\n");
+		return ;
+	} 
+	
+	int p=declared(x);
+
+	if (p==-1)
+	{
+		yyerror("The variabile was not declared");
+	}
+	else
+	{
+
+		int type_var = identify_type(x.type);
+		switch (type_var)
+		{
+			case 1:
+			{
+				printf("%d",*((int)x.pt);
+				return 0;
+			}
+			case 2:
+			{
+				printf("%f",*((float)x.pt);
+				return 0;
+			}
+			case 3:
+			{
+				printf("%c",*((char)x.pt);
+				return 0;
+			}
+		}
+	}
+	return ;
+}
