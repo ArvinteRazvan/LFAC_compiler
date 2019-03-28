@@ -1,4 +1,4 @@
-# LFAC_compiler
+# LFAC compiler
 As the final task for Formal Languages, Automata and Compilers, I developed this compiler using LEX and YACC.
 As a sidenote, this task was done in Second year, First semester at FII UAIC, 2016-2017 and it was my first bit homework.
 
